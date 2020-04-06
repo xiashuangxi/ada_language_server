@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 --                         Language Server Protocol                         --
 --                                                                          --
---                     Copyright (C) 2018-2019, AdaCore                     --
+--                     Copyright (C) 2018-2020, AdaCore                     --
 --                                                                          --
 -- This is free software;  you can redistribute it  and/or modify it  under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,6 +22,7 @@ with GNATCOLL.Traces;
 
 with LSP.Messages.Server_Requests;
 with LSP.Messages.Server_Responses;
+with LSP.Partial_Results;
 with LSP.Servers;
 with LSP.Server_Request_Handlers;
 
@@ -91,7 +92,7 @@ package LSP.Error_Decorators is
    overriding function On_References_Request
      (Self    : access Error_Decorator;
       Request : LSP.Messages.Server_Requests.References_Request)
-      return LSP.Messages.Server_Responses.Location_Response;
+      return LSP.Partial_Results.Reference_Batch_Cursor'Class;
 
    overriding function On_Signature_Help_Request
      (Self    : access Error_Decorator;

@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 --                         Language Server Protocol                         --
 --                                                                          --
---                     Copyright (C) 2018-2019, AdaCore                     --
+--                     Copyright (C) 2018-2020, AdaCore                     --
 --                                                                          --
 -- This is free software;  you can redistribute it  and/or modify it  under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -145,6 +145,15 @@ package body LSP.Ada_Contexts is
       end;
    end Append_Declarations;
 
+   ----------------
+   -- File_Count --
+   ----------------
+
+   function File_Count (Self : Context) return Natural is
+   begin
+      return Natural (Self.Source_Files.Length);
+   end File_Count;
+
    -----------------
    -- File_To_URI --
    -----------------
@@ -177,6 +186,77 @@ package body LSP.Ada_Contexts is
       end loop;
       return Source_Units;
    end Analysis_Units;
+
+   -------------------------
+   -- Has_More_References --
+   -------------------------
+
+   function Has_More_References (Self : All_Reference_Cursor) return Boolean is
+   begin
+      return File_Sets.Has_Element (Self.Next_File);
+   end Has_More_References;
+
+   --------------------------
+   -- Are_References_Exact --
+   --------------------------
+
+   function Are_References_Exact
+     (Self : All_Reference_Cursor) return Boolean is
+   begin
+      return Self.Exact;
+   end Are_References_Exact;
+
+   -------------------------
+   -- Get_Next_References --
+   -------------------------
+
+   function Get_Next_References
+     (Self : in out All_Reference_Cursor)
+      return Libadalang.Analysis.Base_Id_Array
+   is
+      Units : Libadalang.Analysis.Analysis_Unit_Array (1 .. Self.Step);
+      Last  : Natural := 0;
+   begin
+      while File_Sets.Has_Element (Self.Next_File) and Last <= Units'Last loop
+         Last := Last + 1;
+         Units (Last) := Self.Context.LAL_Context.Get_From_File
+           (File_Sets.Element (Self.Next_File).Display_Full_Name,
+            Charset => Self.Context.Get_Charset);
+         File_Sets.Next (Self.Next_File);
+      end loop;
+
+      --  Make two attempts: first with precise results, then with the
+      --  imprecise_fallback.
+      begin
+         return Self.Name.P_Find_All_References (Units (1 .. Last));
+      exception
+         when E : Libadalang.Common.Property_Error =>
+            Self.Exact := False;
+            Log (Self.Context.Trace, E, "in Get_Next_References (precise)");
+            return Self.Name.P_Find_All_References
+              (Units (1 .. Last), Imprecise_Fallback => True);
+      end;
+   exception
+      when E : Libadalang.Common.Property_Error =>
+         Log (Self.Context.Trace, E, "in Get_Next_References (imprecise)");
+         return (1 .. 0 => <>);
+   end Get_Next_References;
+
+   -------------------------
+   -- Find_All_References --
+   -------------------------
+
+   function Find_All_References
+     (Self       : Context'Class;
+      Definition : Libadalang.Analysis.Defining_Name;
+      Step       : Positive) return All_Reference_Cursor is
+   begin
+      return (Context   => Self'Unchecked_Access,
+              Next_File => Self.Source_Files.First,
+              Name      => Definition,
+              Exact     => True,
+              Step      => Step);
+   end Find_All_References;
 
    -------------------------
    -- Find_All_References --

@@ -6232,6 +6232,10 @@ package LSP.Messages is
      (WorkDoneProgressEnd);
    subtype Progress_End_Params is ProgressParam_Begin_Package.ProgressParam;
 
+   package Partial_References_Package is new Generic_ProgressParam
+     (Location_Vector);
+   subtype Progress_References_Params is Partial_References_Package.ProgressParam;
+
    --  The $/progress request has a parameter of the form
    --    {
    --       token: ProgressToken;
@@ -6242,7 +6246,11 @@ package LSP.Messages is
    --  The code below provides an enumerated type and a record with
    --  discriminant to give a type-safe representation of this.
 
-   type Progress_Kind is (Progress_Begin, Progress_Report, Progress_End);
+   type Progress_Kind is
+     (Progress_Begin,
+      Progress_Report,
+      Progress_End,
+      Partial_References);
    type Progress_Params (Kind : Progress_Kind := Progress_Begin) is record
       case Kind is
          when Progress_Begin =>
@@ -6251,6 +6259,8 @@ package LSP.Messages is
             Report_Param : Progress_Report_Params;
          when Progress_End =>
             End_Param : Progress_End_Params;
+         when Partial_References =>
+            References_Param : Progress_References_Params;
       end case;
    end record;
 

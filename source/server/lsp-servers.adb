@@ -1057,7 +1057,7 @@ package body LSP.Servers is
             declare
                Response : constant Message_Access :=
                  new LSP.Messages.ResponseMessage'Class'
-                   (LSP.Servers.Handle_Request (Req_Handler, Request));
+                   (LSP.Servers.Handle_Request (Req_Handler, Server, Request));
             begin
                Output_Queue.Enqueue (Response);
                --  Response will be deleted by Output_Task

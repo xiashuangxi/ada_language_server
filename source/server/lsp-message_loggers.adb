@@ -920,6 +920,10 @@ package body LSP.Message_Loggers is
             Self.Trace.Trace ("Progress_End: "
                               & (LSP.Types.To_UTF_8_String
                                 (Params.End_Param.token)));
+         when Partial_References =>
+            Self.Trace.Trace ("Partial_References: "
+                              & (LSP.Types.To_UTF_8_String
+                                (Params.References_Param.token)));
       end case;
    end On_Progress;
 

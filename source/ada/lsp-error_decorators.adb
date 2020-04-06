@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 --                         Language Server Protocol                         --
 --                                                                          --
---                     Copyright (C) 2018-2019, AdaCore                     --
+--                     Copyright (C) 2018-2020, AdaCore                     --
 --                                                                          --
 -- This is free software;  you can redistribute it  and/or modify it  under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -252,17 +252,39 @@ package body LSP.Error_Decorators is
    -- On_References_Request --
    ---------------------------
 
-   function References_Request is new Generic_Request
-     (Request    => LSP.Messages.Server_Requests.References_Request,
-      Response   => LSP.Messages.Server_Responses.Location_Response,
-      Handler    => LSP.Server_Request_Handlers.Server_Request_Handler,
-      On_Request => LSP.Server_Request_Handlers.On_References_Request);
+   type Empty_Reference_Batch_Cursor is
+     new LSP.Partial_Results.Empty_Batch_Cursor
+     and LSP.Partial_Results.Reference_Batch_Cursor with null record;
+
+   overriding procedure Next_References
+     (Self    : in out Empty_Reference_Batch_Cursor;
+      Request : LSP.Messages.ReferenceParams;
+      Value   : in out LSP.Messages.Location_Vector) is null;
+
+   ---------------------------
+   -- On_References_Request --
+   ---------------------------
 
    overriding function On_References_Request
      (Self    : access Error_Decorator;
       Request : LSP.Messages.Server_Requests.References_Request)
-      return LSP.Messages.Server_Responses.Location_Response
-        renames References_Request;
+      return LSP.Partial_Results.Reference_Batch_Cursor'Class
+   is
+   begin
+      return Self.Handler.On_References_Request (Request);
+   exception
+      when E : Libadalang.Common.Property_Error =>
+         Self.Trace.Trace ("Uncaught Property_Error");
+         Self.Trace.Trace (E);
+         return Result : Empty_Reference_Batch_Cursor;
+
+      when E : others =>
+         --  Property errors are expected to happen in the normal flow
+         --  of events in LAL. However, for any other error than a
+         --  property error, we want to reload the context.
+         Self.On_Error (E);
+         raise;
+   end On_References_Request;
 
    -------------------------------
    -- On_Signature_Help_Request --

@@ -20,6 +20,8 @@ with LSP.Server_Request_Handlers;
 function LSP.Servers.Handle_Request
   (Self    : not null LSP.Server_Request_Handlers
      .Server_Request_Handler_Access;
+   Server  : not null access LSP.Client_Message_Receivers
+     .Client_Message_Receiver'Class;
    Request : LSP.Messages.RequestMessage'Class)
    return LSP.Messages.ResponseMessage'Class;
 --  This dispatches a Request to the appropriate

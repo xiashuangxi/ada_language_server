@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 --                         Language Server Protocol                         --
 --                                                                          --
---                     Copyright (C) 2018-2019, AdaCore                     --
+--                     Copyright (C) 2018-2020, AdaCore                     --
 --                                                                          --
 -- This is free software;  you can redistribute it  and/or modify it  under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -82,6 +82,26 @@ package LSP.Ada_Contexts is
    --  If Document is not null, get the location from the document, otherwise
    --  get it from the file.
 
+   type All_Reference_Cursor is tagged private;
+   --  A cursor to fetch all references
+
+   function Has_More_References (Self : All_Reference_Cursor) return Boolean;
+   --  Check if cursor has more references
+
+   function Are_References_Exact (Self : All_Reference_Cursor) return Boolean;
+   --  Return True if all returned references are exact so far
+
+   function Get_Next_References
+     (Self : in out All_Reference_Cursor)
+      return Libadalang.Analysis.Base_Id_Array;
+
+   function Find_All_References
+     (Self       : Context'Class;
+      Definition : Libadalang.Analysis.Defining_Name;
+      Step       : Positive) return All_Reference_Cursor;
+   --  Find all references to a given defining name in units of the context
+   --  taking no more then Step files.
+
    function Find_All_References
      (Self              : Context;
       Definition        : Libadalang.Analysis.Defining_Name;
@@ -141,6 +161,9 @@ package LSP.Ada_Contexts is
    function List_Files (Self : Context) return File_Sets.Set;
    --  Return the list of files known to this context.
 
+   function File_Count (Self : Context) return Natural;
+   --  Return the number of files known to this context.
+
    procedure Index_File (Self : Context; File : GNATCOLL.VFS.Virtual_File);
    --  Index the given file. This translates to refreshing the Libadalang
    --  Analysis_Unit associated to it.
@@ -191,5 +214,13 @@ private
 
    function List_Files (Self : Context) return File_Sets.Set
    is (Self.Source_Files);
+
+   type All_Reference_Cursor is tagged record
+      Context   : access constant LSP.Ada_Contexts.Context;
+      Next_File : File_Sets.Cursor := File_Sets.No_Element;
+      Name      : Libadalang.Analysis.Defining_Name;
+      Exact     : Boolean := True;
+      Step      : Positive := 1;
+   end record;
 
 end LSP.Ada_Contexts;

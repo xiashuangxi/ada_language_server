@@ -1,11 +1,17 @@
 --  Automatically generated, do not edit.
 
+with LSP.Errors;
 with LSP.Messages.Server_Requests; use LSP.Messages.Server_Requests;
+with LSP.Messages.Server_Responses;
+with LSP.Partial_Results;
+
 with Ada.Strings.UTF_Encoding;
 
 function LSP.Servers.Handle_Request
   (Self    : not null Server_Request_Handlers
      .Server_Request_Handler_Access;
+   Server  : not null access LSP.Client_Message_Receivers
+      .Client_Message_Receiver'Class;
    Request : LSP.Messages.RequestMessage'Class)
       return LSP.Messages.ResponseMessage'Class
 is
@@ -145,17 +151,57 @@ begin
          end;
       end if;
 
-      if Request in References_Request'Class then
-         declare
-            R : LSP.Messages.ResponseMessage'Class :=
-               Self.On_References_Request
-                  (References_Request (Request));
-         begin
+   if Request in References_Request'Class then
+      declare
+         Result : LSP.Messages.Location_Vector;
+         Arg    : References_Request renames References_Request (Request);
+         Cursor : LSP.Partial_Results.Reference_Batch_Cursor'Class :=
+           Self.On_References_Request (Arg);
+      begin
+         while Cursor.Has_Batch and then not Arg.Canceled loop
+            Cursor.Next_References (Arg.params, Result);
+
+            if Arg.params.partialResultToken.Is_Set then
+               declare
+                  Part : LSP.Messages.Progress_Params
+                    (LSP.Messages.Partial_References);
+               begin
+                  Part.References_Param.token :=
+                    Arg.params.partialResultToken.Value;
+                  Part.References_Param.value.Move (Result);
+                  Server.On_Progress (Part);
+               end;
+            end if;
+         end loop;
+
+         if Arg.Canceled then
+            return R : LSP.Messages.Server_Responses.Location_Response
+              (Is_Error => True)
+            do
+               R.jsonrpc := +"2.0";
+               R.id := Request.id;
+               R.error.value :=
+                 (code => LSP.Errors.RequestCancelled, others => <>);
+            end return;
+         elsif Cursor.Is_Error then
+            return R : LSP.Messages.Server_Responses.Location_Response
+              (Is_Error => True)
+            do
+               R.jsonrpc := +"2.0";
+               R.id := Request.id;
+               Cursor.Get_Error (R.error.value);
+            end return;
+         end if;
+
+         return R : LSP.Messages.Server_Responses.Location_Response
+           (Is_Error => False)
+         do
             R.jsonrpc := +"2.0";
             R.id := Request.id;
-            return R;
-         end;
-      end if;
+            R.result.Move (Source => Result);
+         end return;
+      end;
+   end if;
 
       if Request in Signature_Help_Request'Class then
          declare

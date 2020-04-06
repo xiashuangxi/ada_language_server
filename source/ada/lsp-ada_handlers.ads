@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 --                         Language Server Protocol                         --
 --                                                                          --
---                     Copyright (C) 2018-2019, AdaCore                     --
+--                     Copyright (C) 2018-2020, AdaCore                     --
 --                                                                          --
 -- This is free software;  you can redistribute it  and/or modify it  under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,6 +30,7 @@ with LSP.Ada_Documents;
 
 with LSP.Messages.Server_Requests;
 with LSP.Messages.Server_Responses;
+with LSP.Partial_Results;
 with LSP.Server_Backends;
 with LSP.Server_Request_Handlers;
 with LSP.Server_Notification_Receivers;
@@ -235,7 +236,7 @@ private
    overriding function On_References_Request
      (Self    : access Message_Handler;
       Request : LSP.Messages.Server_Requests.References_Request)
-      return LSP.Messages.Server_Responses.Location_Response;
+      return LSP.Partial_Results.Reference_Batch_Cursor'Class;
 
    overriding function On_Signature_Help_Request
      (Self    : access Message_Handler;

@@ -117,6 +117,28 @@ package LSP.Lal_Utils is
    --  for a body, ie a "is null" procedure, an expression function, or an
    --  abstract subprogram.
 
+   function Hash
+     (Value : LSP.Messages.Location) return Ada.Containers.Hash_Type;
+   --  Hash value for Location type
+
+   function Get_Reference_Kind
+     (Node  : Ada_Node;
+      Trace : GNATCOLL.Traces.Trace_Handle)
+      return LSP.Messages.AlsReferenceKind_Set;
+   --  Fetch reference kind for given node
+
+   function Is_End_Label (Node : Ada_Node) return Boolean
+   is
+     (not Node.Parent.Is_Null
+      and then
+        (Node.Parent.Kind in Libadalang.Common.Ada_End_Name
+         or else (Node.Parent.Kind in Libadalang.Common.Ada_Dotted_Name
+                  and then not Node.Parent.Parent.Is_Null
+                  and then Node.Parent.Parent.Kind in
+                    Libadalang.Common.Ada_End_Name)));
+   --  Return True if the node belongs to an end label node.
+   --  Used to filter out end label references.
+
    ---------------
    -- Called_By --
    ---------------

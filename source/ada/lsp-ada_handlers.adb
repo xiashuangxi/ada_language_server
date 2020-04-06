@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 --                         Language Server Protocol                         --
 --                                                                          --
---                     Copyright (C) 2018-2019, AdaCore                     --
+--                     Copyright (C) 2018-2020, AdaCore                     --
 --                                                                          --
 -- This is free software;  you can redistribute it  and/or modify it  under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,6 +38,7 @@ with LSP.Errors;
 with LSP.Lal_Utils;    use LSP.Lal_Utils;
 with LSP.Messages.Server_Notifications;
 with LSP.Types;        use LSP.Types;
+with LSP.Ada_Reference_Cursors;
 
 with Langkit_Support.Text;
 
@@ -1670,153 +1671,15 @@ package body LSP.Ada_Handlers is
    overriding function On_References_Request
      (Self    : access Message_Handler;
       Request : LSP.Messages.Server_Requests.References_Request)
-      return LSP.Messages.Server_Responses.Location_Response
-   is
-      use Libadalang.Analysis;
-      use Libadalang.Common;
-
-      Value      : LSP.Messages.ReferenceParams renames Request.params;
-      Response   : LSP.Messages.Server_Responses.Location_Response
-        (Is_Error => False);
-      Imprecise  : Boolean := False;
-
-      procedure Process_Context (C : Context_Access);
-      --  Process the references found in one context and append
-      --  them to Response.results.
-
-      function Get_Reference_Kind
-        (Node : Ada_Node) return LSP.Messages.AlsReferenceKind_Set;
-      --  Fetch reference kind for given node
-
-      function Is_End_Label (Node : Ada_Node) return Boolean
-      is
-        (not Node.Parent.Is_Null
-         and then
-           (Node.Parent.Kind in Ada_End_Name
-            or else (Node.Parent.Kind in Ada_Dotted_Name
-                     and then not Node.Parent.Parent.Is_Null
-                     and then Node.Parent.Parent.Kind in Ada_End_Name)));
-      --  Return True if the node belongs to an end label node.
-      --  Used to filter out end label references.
-
-      function Is_Type_Derivation (Node : Ada_Node) return Boolean
-      is
-        (not Node.Parent.Is_Null
-         and then
-           (Node.Parent.Kind in Ada_Subtype_Indication_Range
-            and then not Node.Parent.Parent.Is_Null
-            and then Node.Parent.Parent.Kind in Ada_Derived_Type_Def_Range));
-      --  Return True if the node belongs to derived type declaration.
-
-      ------------------------
-      -- Get_Reference_Kind --
-      ------------------------
-
-      function Get_Reference_Kind
-        (Node : Ada_Node) return LSP.Messages.AlsReferenceKind_Set
-      is
-         use LSP.Messages;
-
-         Id     : constant Name := LSP.Lal_Utils.Get_Node_As_Name (Node);
-         Result : LSP.Messages.AlsReferenceKind_Set := LSP.Messages.Empty_Set;
-      begin
-         begin
-            Result.As_Flags (LSP.Messages.Write) := Id.P_Is_Write_Reference;
-         exception
-            when E : Libadalang.Common.Property_Error =>
-               Log (Self.Trace, E);
-         end;
-
-         begin
-            Result.As_Flags (LSP.Messages.Static_Call) := Id.P_Is_Static_Call;
-         exception
-            when E : Libadalang.Common.Property_Error =>
-               Log (Self.Trace, E);
-         end;
-
-         begin
-            Result.As_Flags (LSP.Messages.Dispatching_Call) :=
-              Id.P_Is_Dispatching_Call;
-         exception
-            when E : Libadalang.Common.Property_Error =>
-               Log (Self.Trace, E);
-         end;
-
-         begin
-            Result.As_Flags (LSP.Messages.Child) :=
-              Is_Type_Derivation (Id.As_Ada_Node);
-         exception
-            when E : Libadalang.Common.Property_Error =>
-               Log (Self.Trace, E);
-         end;
-
-         --  If the result has not any set flags at this point, flag it as a
-         --  simple reference.
-         if Result.As_Flags = AlsReferenceKind_Array'(others => False) then
-            Result.As_Flags (LSP.Messages.Simple) := True;
-         end if;
-
-         return Result;
-      end Get_Reference_Kind;
-
-      ---------------------
-      -- Process_Context --
-      ---------------------
-
-      procedure Process_Context (C : Context_Access) is
-         Definition : Defining_Name;
-      begin
-         Self.Imprecise_Resolve_Name (C, Value, Definition);
-
-         if Definition = No_Defining_Name or else Request.Canceled then
-            return;
-         end if;
-
-         declare
-            Count          : Cancel_Countdown := 0;
-            This_Imprecise : Boolean;
-            References     : constant Base_Id_Array :=
-              C.Find_All_References (Definition, This_Imprecise);
-         begin
-            Imprecise := Imprecise or This_Imprecise;
-
-            for Node of References loop
-               if not Is_End_Label (Node.As_Ada_Node) then
-                  Count := Count - 1;
-
-                  Append_Location
-                    (Response.result,
-                     Node,
-                     Get_Reference_Kind (Node.As_Ada_Node));
-               end if;
-
-               exit when Count = 0  and then Request.Canceled;
-            end loop;
-
-            if Value.context.includeDeclaration then
-               Append_Location
-                 (Response.result,
-                  Definition,
-                  Get_Reference_Kind (Definition.As_Ada_Node));
-            end if;
-         end;
-      end Process_Context;
-
+      return LSP.Partial_Results.Reference_Batch_Cursor'Class is
    begin
-      for C of Self.Contexts_For_URI (Value.textDocument.uri) loop
-         Process_Context (C);
-
-         exit when Request.Canceled;
-      end loop;
-
-      if Imprecise then
-         Self.Show_Message
-           ("The results of 'references' are approximate.",
-            LSP.Messages.Warning);
-      end if;
-
-      Sort_And_Remove_Duplicates (Response.result);
-      return Response;
+      return Result : constant LSP.Ada_Reference_Cursors.Reference_Cursor :=
+        LSP.Ada_Reference_Cursors.Create
+          (Documents => Self.all'Unchecked_Access,
+           Server    => Self.Server,
+           Contexts  => Self.Contexts.Each_Context,
+           Position  => Request.params,
+           Trace     => Self.Trace);
    end On_References_Request;
 
    ------------------------------

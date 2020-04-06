@@ -6644,6 +6644,10 @@ package body LSP.Messages is
             Write_String (JS, +"kind", +"end");
             Write_Optional_String (JS, +"message", V.End_Param.value.message);
             JS.End_Object;
+         when Partial_References =>
+            Write_Number_Or_String (JS, +"token", V.References_Param.token);
+            JS.Key ("value");
+            Location_Vector'Write (S, V.References_Param.value);
       end case;
 
       JS.End_Object;

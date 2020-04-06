@@ -2,6 +2,7 @@
 
 with LSP.Messages.Server_Requests;
 with LSP.Messages.Server_Responses;
+with LSP.Partial_Results;
 
 package LSP.Server_Request_Handlers is
 
@@ -72,7 +73,7 @@ package LSP.Server_Request_Handlers is
    function On_References_Request
      (Self    : access Server_Request_Handler;
       Request : LSP.Messages.Server_Requests.References_Request)
-      return LSP.Messages.Server_Responses.Location_Response is abstract;
+      return LSP.Partial_Results.Reference_Batch_Cursor'Class is abstract;
 
    function On_Signature_Help_Request
      (Self    : access Server_Request_Handler;
