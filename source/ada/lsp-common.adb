@@ -15,8 +15,8 @@
 -- of the license.                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Characters.Handling;
 with Ada.Exceptions;           use Ada.Exceptions;
+with Ada.Strings.UTF_Encoding;
 with GNAT.Expect.TTY;
 with GNAT.Strings;
 with GNAT.Traceback.Symbolic;  use GNAT.Traceback.Symbolic;
@@ -26,6 +26,10 @@ with Langkit_Support.Text;
 with Libadalang.Common;        use Libadalang.Common;
 
 package body LSP.Common is
+
+   function "+" (Text : Ada.Strings.UTF_Encoding.UTF_8_String)
+     return LSP.Types.LSP_String renames
+       LSP.Types.To_LSP_String;
 
    function Get_Hover_Text_For_Node (Node : Ada_Node'Class) return LSP_String;
    --  Return a pretty printed version of the node's text to be
@@ -243,7 +247,7 @@ package body LSP.Common is
          if not Node.Parent.Is_Null
            and then Node.Parent.Kind in Ada_Abstract_Subp_Decl_Range
          then
-            Append (Result, " is abstract");
+            Result := Result & (+" is abstract");
             return;
          end if;
 
@@ -252,7 +256,7 @@ package body LSP.Common is
          if not Node.Parent.Is_Null
            and then Node.Parent.Kind in Ada_Null_Subp_Decl_Range
          then
-            Append (Result, " is null");
+            Result := Result & (+" is null");
          end if;
       end Get_Subp_Spec_Hover_Text;
 
@@ -308,10 +312,10 @@ package body LSP.Common is
          Skip_Blanks (Lines (Lines'First).all, Idx);
          Indentation := Idx - Lines (Lines'First)'First;
 
-         Result := Ada.Characters.Handling.To_Wide_Character (ASCII.LF)
-           & (2 * " ")  --  Force an indentation of 2 for the first line
-           & To_LSP_String --  Remove the uneeded indentation
-           (Lines (Lines'First).all
+         Result :=
+           +(ASCII.LF & "  ")  --  Force an indentation of 2 for the first line
+           & --  Remove the uneeded indentation
+           (+Lines (Lines'First).all
                 (Lines (Lines'First)'First + Indentation
                  .. Lines (Lines'First).all'Last));
 
@@ -325,13 +329,11 @@ package body LSP.Common is
             if Lines (J)'First + Indentation > Idx then
                --  Uncommon indentation: just print the line
                Result := Result
-                 & Ada.Characters.Handling.To_Wide_Character (ASCII.LF)
-                 & To_LSP_String (Lines (J).all);
+                 & To_LSP_String (ASCII.LF & Lines (J).all);
             else
                Result := Result
-                 & Ada.Characters.Handling.To_Wide_Character (ASCII.LF)
                  & To_LSP_String --  Remove the uneeded indentation
-                 (Lines (J).all
+                 (ASCII.LF & Lines (J).all
                       (Lines (J)'First + Indentation .. Lines (J).all'Last));
             end if;
          end loop;
@@ -394,10 +396,11 @@ package body LSP.Common is
                for Aspect of Aspects.F_Aspect_Assocs loop
                   if Aspects_Text /= Empty_LSP_String then
                      --  need to add "," for the highlighting
-                     Append (Aspects_Text, ",");
+                     Aspects_Text := Aspects_Text & (+",");
                   end if;
 
-                  Append (Aspects_Text, Get_Hover_Text_For_Node (Aspect));
+                  Aspects_Text := Aspects_Text &
+                    Get_Hover_Text_For_Node (Aspect);
                end loop;
 
                if Aspects_Text /= Empty_LSP_String then

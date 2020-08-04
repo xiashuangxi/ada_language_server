@@ -18,8 +18,8 @@
 with Ada.Characters.Conversions;
 with Ada.Characters.Latin_1;
 with Ada.Characters.Wide_Latin_1;
+with Ada.Strings.UTF_Encoding;
 with Ada.Strings.Unbounded;
-with Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
 with Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Unchecked_Deallocation;
 
@@ -212,9 +212,9 @@ package body LSP.Ada_Documents is
                --  Note: do this rather than Self.Text.Slice, to avoid
                --  allocating a potentially big string on the stack in the
                --  parameter to Slice.
-               Self.Text := Unbounded_Slice (Self.Text, 1, Low_Index - 1)
+               Self.Text := Slice (Self.Text, 1, Low_Index - 1)
                  & Change.text
-                 & Unbounded_Slice (Self.Text, High_Index,
+                 & Slice (Self.Text, High_Index,
                                     Length (Self.Text));
 
                --  Recompute the indexes
@@ -279,7 +279,7 @@ package body LSP.Ada_Documents is
             + Natural (End_Pos.character);
    begin
       return To_UTF_8_String
-        (Unbounded_Slice (Self.Text, Start_Index, End_Index));
+        (Slice (Self.Text, Start_Index, End_Index));
    end Get_Text_At;
 
    ----------
@@ -295,7 +295,6 @@ package body LSP.Ada_Documents is
    is
       use LSP.Types;
       use LSP.Messages;
-      use type Ada.Containers.Count_Type;
 
       Old_First_Line : Natural;
       New_First_Line : Natural;
@@ -309,7 +308,7 @@ package body LSP.Ada_Documents is
 
       if Old_Span = Empty_Span then
          Old_First_Line := 1;
-         Old_Length     := Natural (Length (Old_Lines));
+         Old_Length     := Length (Old_Lines);
 
       else
          Old_First_Line := Natural (Old_Span.first.line + 1);
@@ -318,7 +317,7 @@ package body LSP.Ada_Documents is
 
       if New_Span = Empty_Span then
          New_First_Line := 1;
-         New_Length     := Natural (Length (New_Lines));
+         New_Length     := Length (New_Lines);
       else
          New_First_Line := Natural (New_Span.first.line + 1);
          New_Length := Natural (New_Span.last.line - New_Span.first.line + 1);
@@ -416,8 +415,8 @@ package body LSP.Ada_Documents is
          for Row in 1 .. Old_Length loop
             for Column in 1 .. New_Length loop
                Match := LCS (Row - 1, Column - 1) +
-                 (if Old_Lines (Old_First_Line + Row - 1) =
-                      New_Lines (New_First_Line + Column - 1)
+                 (if Old_Lines.Element (Old_First_Line + Row - 1) =
+                      New_Lines.Element (New_First_Line + Column - 1)
                   then 10   --  +10 is the 'weight' for equal lines
                   else -1); --  and -1 for the different
 
@@ -438,8 +437,8 @@ package body LSP.Ada_Documents is
          loop
             if LCS (Old_Index, New_Index) =
               LCS (Old_Index - 1, New_Index - 1) +
-              (if Old_Lines (Old_First_Line + Old_Index - 1) =
-                   New_Lines (New_First_Line + New_Index - 1)
+              (if Old_Lines.Element (Old_First_Line + Old_Index - 1) =
+                   New_Lines.Element (New_First_Line + New_Index - 1)
                then 10
                else -1)
             then
@@ -1789,8 +1788,7 @@ package body LSP.Ada_Documents is
    function To_LSP_String
      (Value : Wide_Wide_String) return LSP.Types.LSP_String is
    begin
-      return LSP.Types.To_LSP_String
-        (Ada.Strings.UTF_Encoding.Wide_Wide_Strings.Encode (Value));
+      return LSP.Types.To_LSP_String (Value);
    end To_LSP_String;
 
    --------------------
@@ -1846,7 +1844,7 @@ package body LSP.Ada_Documents is
       Item.detail := (True, Compute_Completion_Detail (BD));
 
       if not Is_Visible then
-         Item.sortText := (True, '~' & Item.label);
+         Item.sortText := (True, (+"~") & Item.label);
       end if;
 
       --  Property_Errors can occur when calling
@@ -1854,10 +1852,7 @@ package body LSP.Ada_Documents is
       --  add an exception handler to catch them and recover.
       begin
          Doc_Text := To_LSP_String
-           (Ada.Strings.UTF_Encoding.Wide_Wide_Strings.
-              Encode
-                (Libadalang.Doc_Utils.Get_Documentation
-                     (BD).Doc.To_String));
+           (Libadalang.Doc_Utils.Get_Documentation (BD).Doc.To_String);
 
          --  Append the declaration's location.
          --  In addition, append the project's name if we are dealing with an
@@ -1930,7 +1925,7 @@ package body LSP.Ada_Documents is
               (Is_Set => True,
                Value  => Snippet);
 
-            Insert_Text := Insert_Text & " (";
+            Insert_Text := Insert_Text & (+" (");
 
             --  Compute number of params to know if named notation should be
             --  used.
@@ -1987,13 +1982,13 @@ package body LSP.Ada_Documents is
 
             --  Remove the "}, " substring that has been appended in the last
             --  loop iteration.
-            Insert_Text := Unbounded_Slice
+            Insert_Text := Slice
               (Insert_Text,
                1,
                Length (Insert_Text) - 2);
 
             --  Insert '$0' (i.e: the final tab stop) at the end.
-            Insert_Text := Insert_Text & ")$0";
+            Insert_Text := Insert_Text & (+")$0");
 
             Item.insertText :=
               (Is_Set => True,
@@ -2196,7 +2191,7 @@ package body LSP.Ada_Documents is
 
                Snippet := To_LSP_String
                  (Langkit_Support.Text.To_UTF8 (Discriminant (Disc).Text))
-                 & " => ";
+                  & (+" => ");
 
                if Value_Node.Kind in Ada_Others_Designator_Range then
                   Snippet := Snippet & To_LSP_String
@@ -2279,13 +2274,13 @@ package body LSP.Ada_Documents is
                Label := Label & To_LSP_String
                  (Langkit_Support.Text.To_UTF8
                     (Discriminant (Disc_Values).Text))
-                 & " => ";
+                  & (+" => ");
 
                Label := Label & To_LSP_String
                  (Langkit_Support.Text.To_UTF8 (Values (Disc_Values).Text));
 
                if Idx < Discriminants'Length then
-                  Label := Label & ", ";
+                  Label := Label & (+", ");
                end if;
             end;
          end loop;
@@ -2352,7 +2347,7 @@ package body LSP.Ada_Documents is
                   if not Base_Type.Is_Null and then Base_Type.P_Is_Private then
                      Insert_Text := LSP.Types.To_LSP_String
                        (Langkit_Support.Text.To_UTF8 (Base_Type.F_Name.Text))
-                       & " with ";
+                        & (+" with ");
 
                      declare
                         Base_Discs : constant Base_Formal_Param_Decl_Array :=
@@ -2405,14 +2400,14 @@ package body LSP.Ada_Documents is
                   if Idx > 1 then
                      --  Remove the "}, " substring that has been
                      --  appended in the last loop iteration.
-                     Insert_Text := Unbounded_Slice
+                     Insert_Text := Slice
                        (Insert_Text,
                         1,
                         Length (Insert_Text) - 2);
 
                      --  Insert '$0' (i.e: the final tab stop) at the
                      --  end.
-                     Insert_Text := Insert_Text & ")$0";
+                     Insert_Text := Insert_Text & (+")$0");
                      Item.insertText :=
                        (Is_Set => True,
                         Value  => Insert_Text);

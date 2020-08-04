@@ -28,6 +28,10 @@ with LSP.Messages.Client_Requests;
 
 package body LSP.Ada_Handlers.Named_Parameters_Commands is
 
+   function "+" (Text : Ada.Strings.UTF_Encoding.UTF_8_String)
+     return LSP.Types.LSP_String renames
+       LSP.Types.To_LSP_String;
+
    function Get_Parameters
      (Args : Libadalang.Analysis.Basic_Assoc_List)
       return LSP.Types.LSP_String_Vector;
@@ -105,7 +109,7 @@ package body LSP.Ada_Handlers.Named_Parameters_Commands is
          Edit   : LSP.Messages.TextEdit;
       begin
          Edit.span := (Loc.span.first, Loc.span.first);
-         Edit.newText := Name & " => ";
+         Edit.newText := Name & (+" => ");
 
          if Client_Supports_documentChanges then
             Edits.documentChanges (1).Text_Document_Edit.edits.Append (Edit);
@@ -156,12 +160,12 @@ package body LSP.Ada_Handlers.Named_Parameters_Commands is
       Index := Args.Children_Count;
 
       for Arg of reverse Args.Children loop
-         exit when Index < Params.First_Index;
+         exit when Index < 1;
 
          case Arg.Kind is
             when Libadalang.Common.Ada_Param_Assoc =>
                if Arg.As_Param_Assoc.F_Designator.Is_Null then
-                  Append (Arg, Params (Index));
+                  Append (Arg, Params.Element (Index));
                end if;
 
             when others =>

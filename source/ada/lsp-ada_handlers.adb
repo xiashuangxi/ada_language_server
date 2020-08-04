@@ -265,7 +265,7 @@ package body LSP.Ada_Handlers is
    begin
       Self.Server.On_Show_Message
         ((Msg_Type,
-         "Imprecise fallback used to compute cross-references on entity at:"
+         (+"Imprecise fallback used to compute cross-references on entity at:")
          & To_LSP_String
            (Line_Feed & "   " & File.Display_Base_Name)
          & To_LSP_String
@@ -563,9 +563,13 @@ package body LSP.Ada_Handlers is
       Response.result.capabilities.completionProvider :=
         (True,
          (resolveProvider     => (True, False),
-          triggerCharacters   => (True, Empty_Vector & (+".") & (+"(")),
+          triggerCharacters   => (True, Empty_Vector),
           allCommitCharacters => (Is_Set => False),
           workDoneProgress    => (Is_Set => False)));
+      Response.result.capabilities.completionProvider.Value.
+        triggerCharacters.Value.Append (+".");
+      Response.result.capabilities.completionProvider.Value.
+        triggerCharacters.Value.Append (+"(");
       Response.result.capabilities.hoverProvider :=
         (Is_Set => True,
          Value  => (workDoneProgress => (Is_Set => False)));
@@ -1660,7 +1664,7 @@ package body LSP.Ada_Handlers is
          & ")");
 
       if Self.Project_Tree.Root_Project.Is_Aggregate_Project then
-         Location_Text := Location_Text & " in project " & C.Id;
+         Location_Text := Location_Text & (+" in project ") & C.Id;
       end if;
 
       Response.result.Value.contents.Vector.Append
@@ -1672,9 +1676,9 @@ package body LSP.Ada_Handlers is
       --  if any.
 
       Comments_Text := To_LSP_String
-        (Ada.Strings.UTF_Encoding.Wide_Wide_Strings.Encode
+--        (Ada.Strings.UTF_Encoding.Wide_Wide_Strings.Encode
            (Libadalang.Doc_Utils.Get_Documentation
-                (Decl).Doc.To_String));
+                (Decl).Doc.To_String);
 
       if Comments_Text /= Empty_LSP_String then
          Response.result.Value.contents.Vector.Append
@@ -2631,7 +2635,7 @@ package body LSP.Ada_Handlers is
                                         (first => (Line, Start),
                                          last  => (Line, Start)),
                                     newText =>
-                                      LSP.Types.To_Unbounded_Wide_String
+                                      LSP.Types.To_LSP_String
                                         (Box_Line (1 .. Diff))));
                            end;
 
@@ -2654,9 +2658,7 @@ package body LSP.Ada_Handlers is
                                                 (abs Diff)),
                                          last  =>
                                            (Line, Last)),
-                                    newText =>
-                                      LSP.Types.To_Unbounded_Wide_String
-                                        ("")));
+                                    newText => LSP.Types.Empty_LSP_String));
                            end;
                         end if;
 
@@ -2951,11 +2953,10 @@ package body LSP.Ada_Handlers is
             Self.Trace.Trace (E);
             Errors.the_type := LSP.Messages.Error;
 
-            LSP.Types.Append
-              (Errors.message,
+            Errors.message := Errors.message &
                LSP.Types.To_LSP_String
                  ("Unable to load project file: " &
-                  (+GPR.Full_Name.all) & Line_Feed));
+                  (+GPR.Full_Name.all) & Line_Feed);
 
             --  The project was invalid: fallback on loading the implicit
             --  project.
@@ -2964,9 +2965,8 @@ package body LSP.Ada_Handlers is
 
       --  Report the errors, if any
       if not Error_Text.Is_Empty then
-         for Line of Error_Text loop
-            LSP.Types.Append (Errors.message, Line);
-         end loop;
+         Errors.message := Errors.message &
+           Error_Text.Join (' ');
          Self.Server.On_Show_Message (Errors);
       end if;
 

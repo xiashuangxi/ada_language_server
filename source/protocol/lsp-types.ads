@@ -66,7 +66,20 @@ package LSP.Types is
    for LSP_Number'Read use Read;
    for LSP_Number'Write use Write;
 
-   type LSP_String is new Ada.Strings.Wide_Unbounded.Unbounded_Wide_String;
+   type LSP_String is private;
+
+   function "&" (Left, Right : LSP_String) return LSP_String;
+
+   function Length (Left : LSP_String) return Natural;
+
+   function Element
+     (Self  : LSP_String;
+      Index : Positive) return Wide_Character;
+
+   function Slice
+     (Self  : LSP_String;
+      From  : Positive;
+      To    : Natural) return LSP_String;
 
    procedure Read
      (S : access Ada.Streams.Root_Stream_Type'Class;
@@ -83,13 +96,9 @@ package LSP.Types is
    --   for LSP_String'Read use Read;
    --   for LSP_String'Write use Write;
 
-   Empty_LSP_String : constant LSP_String :=
-     LSP_String (Ada.Strings.Wide_Unbounded.Null_Unbounded_Wide_String);
+   Empty_LSP_String : constant LSP_String;
 
-   package LSP_String_Vectors is
-     new Ada.Containers.Vectors (Positive, LSP_String, "=");
-
-   type LSP_String_Vector is new LSP_String_Vectors.Vector with null record;
+   type LSP_String_Vector is tagged private;
    --  Vector of strings
 
    procedure Read_LSP_String_Vector
@@ -103,16 +112,35 @@ package LSP.Types is
    for LSP_String_Vector'Read use Read_LSP_String_Vector;
    for LSP_String_Vector'Write use Write_LSP_String_Vector;
 
-   Empty_Vector : constant LSP_String_Vector :=
-     (LSP_String_Vectors.Vector with null record);
+   function Is_Empty (Self : LSP_String_Vector'Class) return Boolean;
+
+   function Join
+     (Self      : LSP_String_Vector'Class;
+      Separator : Wide_Character) return LSP_String;
+
+   procedure Append
+     (Self : in out LSP_String_Vector'Class;
+      Item : LSP_String);
+
+   function Length (Left : LSP_String_Vector'Class) return Natural;
+
+   function Element
+     (Self  : LSP_String_Vector'Class;
+      Index : Positive) return LSP_String;
+
+   --  procedure Append
+   --    (Self : in out LSP_String_Vector'Class;
+   --     Items : LSP_String_Vector'Class);
+
+   Empty_Vector : constant LSP_String_Vector;
 
    function To_LSP_String (Text : Ada.Strings.UTF_Encoding.UTF_8_String)
      return LSP_String;
    function To_LSP_String (Text : GNATCOLL.JSON.UTF8_Unbounded_String)
      return LSP_String;
    --  Convert given UTF-8 string into LSP_String
-   function To_LSP_String (Text : Wide_Wide_String)
-     return LSP_String;
+   function To_LSP_String (Text : Wide_Wide_String) return LSP_String;
+   function To_LSP_String (Text : Wide_String) return LSP_String;
    function To_LSP_String
      (Item : VSS.Strings.Virtual_String) return LSP_String;
 
@@ -126,6 +154,10 @@ package LSP.Types is
    function To_UTF_8_Unbounded_String (Value : LSP_String)
      return GNATCOLL.JSON.UTF8_Unbounded_String;
    --  Same as To_UTF_8_String above, but returns an Unbounded_String.
+
+   function To_Unbounded_Wide_String (Value : LSP_String)
+     return Ada.Strings.Wide_Unbounded.Unbounded_Wide_String;
+   --  Same as To_UTF_8_String above, but returns an Unbounded_Wide_String.
 
    function To_Virtual_String
      (Item : LSP_String) return VSS.Strings.Virtual_String;
@@ -146,9 +178,7 @@ package LSP.Types is
       Case_Sensitive : Boolean := True) return Boolean;
    --  Check if Text starts with given suffix
 
-   function Hash (Text : LSP_String) return Ada.Containers.Hash_Type is
-     (Ada.Strings.Wide_Unbounded.Wide_Hash
-        (Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Text)));
+   function Hash (Text : LSP_String) return Ada.Containers.Hash_Type;
    --  Compute hash of the Text
 
    type LSP_Number_Or_String (Is_Number : Boolean := False) is record
@@ -351,5 +381,26 @@ package LSP.Types is
    -------------------
 
    subtype ProgressToken is LSP_Number_Or_String;
+
+private
+   type LSP_String is new Ada.Strings.Wide_Unbounded.Unbounded_Wide_String;
+
+   Empty_LSP_String : constant LSP_String :=
+     LSP_String (Ada.Strings.Wide_Unbounded.Null_Unbounded_Wide_String);
+
+   function Hash (Text : LSP_String) return Ada.Containers.Hash_Type is
+     (Ada.Strings.Wide_Unbounded.Wide_Hash
+        (Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Text)));
+
+   package LSP_String_Vectors is
+     new Ada.Containers.Vectors (Positive, LSP_String, "=");
+
+   type LSP_String_Vector is tagged record
+      Data : LSP_String_Vectors.Vector;
+   end record;
+   --  Vector of strings
+
+   Empty_Vector : constant LSP_String_Vector :=
+     (Data => LSP_String_Vectors.Empty_Vector);
 
 end LSP.Types;

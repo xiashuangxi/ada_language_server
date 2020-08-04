@@ -19,13 +19,17 @@ with Ada.Containers;
 with LSP.Types;
 with LSP.Messages; use LSP.Messages;
 
-with Ada.Strings.UTF_Encoding.Wide_Strings;
+with Ada.Strings.UTF_Encoding;
 with GNATCOLL.JSON;
 
 package body LSP.Message_Loggers is
 
    function "+" (Text : LSP.Types.LSP_String) return String
      renames LSP.Types.To_UTF_8_String;
+
+   function "+" (Text : Ada.Strings.UTF_Encoding.UTF_8_String)
+     return LSP.Types.LSP_String renames
+       LSP.Types.To_LSP_String;
 
    function Image (Value : LSP.Types.LSP_Number_Or_String) return String;
    function Image (Value : LSP.Types.Optional_Boolean) return String;
@@ -571,25 +575,19 @@ package body LSP.Message_Loggers is
       ----------
 
       procedure Each (Name : String; Value : GNATCOLL.JSON.JSON_Value) is
-         Field : constant Wide_String :=
-           Ada.Strings.UTF_Encoding.Wide_Strings.Decode (Name);
       begin
-         Append (Image, Field);
-         Append (Image, "=");
+         Image := Image & (+Name);
+         Image := Image & (+"=");
 
          case Value.Kind is
             when GNATCOLL.JSON.JSON_String_Type =>
-               Append
-                 (Image,
-                  Ada.Strings.UTF_Encoding.Wide_Strings.Decode (Value.Get));
+               Image := Image & (+Value.Get);
             when GNATCOLL.JSON.JSON_Object_Type =>
-               Append (Image, "(");
+               Image := Image & (+"(");
                Value.Map_JSON_Object (Each'Access);
-               Append (Image, ")");
+               Image := Image & (+")");
             when others =>
-               Append
-                 (Image, "..."
-                  & GNATCOLL.JSON.JSON_Value_Type'Wide_Image (Value.Kind));
+               Image := Image & (+("..." & Value.Kind'Image));
          end case;
       end Each;
 

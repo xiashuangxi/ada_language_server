@@ -139,10 +139,10 @@ package body LSP.Fuzz_Decorators is
                      end if;
                   end if;
                end loop;
-               Doc_Content := Unbounded_Slice
+               Doc_Content := Slice
                  (Doc_Content, 1, Natural (Start_Ind))
                  & Change.text
-                 & Unbounded_Slice
+                 & Slice
                  (Doc_Content, Natural (End_Ind + 1), Length (Doc_Content));
             end;
          else

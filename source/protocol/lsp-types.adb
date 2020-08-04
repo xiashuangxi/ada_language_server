@@ -36,6 +36,25 @@ package body LSP.Types is
    Chunk_Size    : constant := 512;
    --  When processing strings in chunks, this is the size of the chunk
 
+   overriding function "&" (Left, Right : LSP_String) return LSP_String is
+      use type Ada.Strings.Wide_Unbounded.Unbounded_Wide_String;
+   begin
+      return LSP_String
+        (Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Left) &
+           Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Right));
+   end "&";
+
+   ------------
+   -- Append --
+   ------------
+
+   procedure Append
+     (Self : in out LSP_String_Vector'Class;
+      Item : LSP_String) is
+   begin
+      Self.Data.Append (Item);
+   end Append;
+
    --------------
    -- Assigned --
    --------------
@@ -69,6 +88,57 @@ package body LSP.Types is
    begin
       return Length (Text) = 0;
    end Is_Empty;
+
+   --------------
+   -- Is_Empty --
+   --------------
+
+   function Is_Empty (Self : LSP_String_Vector'Class) return Boolean is
+   begin
+      return Self.Length = 0;
+   end Is_Empty;
+
+   ----------
+   -- Join --
+   ----------
+
+   function Join
+     (Self      : LSP_String_Vector'Class;
+      Separator : Wide_Character) return LSP_String
+   is
+      Result : LSP_String;
+      First  : Boolean := True;
+   begin
+      for Line of Self.Data loop
+         if First then
+            Append (Result, Separator);
+            First := False;
+         end if;
+
+         Append (Result, Line);
+      end loop;
+
+      return Result;
+   end Join;
+
+   ------------
+   -- Length --
+   ------------
+
+   overriding function Length (Left : LSP_String) return Natural is
+   begin
+      return Ada.Strings.Wide_Unbounded.Length
+        (Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Left));
+   end Length;
+
+   ------------
+   -- Length --
+   ------------
+
+   function Length (Left : LSP_String_Vector'Class) return Natural is
+   begin
+      return Left.Data.Last_Index;
+   end Length;
 
    ----------
    -- Read --
@@ -327,7 +397,7 @@ package body LSP.Types is
       JS : LSP.JSON_Streams.JSON_Stream'Class renames
         LSP.JSON_Streams.JSON_Stream'Class (S.all);
    begin
-      V.Clear;
+      V.Data.Clear;
       pragma Assert (JS.R.Is_Start_Array);
       JS.R.Read_Next;
 
@@ -446,6 +516,18 @@ package body LSP.Types is
       JS.R.Read_Next;
    end Read_Nullable_String;
 
+   -----------
+   -- Slice --
+   -----------
+
+   function Slice
+     (Self  : LSP_String;
+      From  : Positive;
+      To    : Natural) return LSP_String is
+   begin
+      return Unbounded_Slice (Self, From, To);
+   end Slice;
+
    -----------------
    -- Starts_With --
    -----------------
@@ -469,6 +551,29 @@ package body LSP.Types is
          return To_Lower (Value (1 .. Prefix'Length)) = To_Lower (Prefix);
       end if;
    end Starts_With;
+
+   -------------
+   -- Element --
+   -------------
+
+   overriding function Element
+     (Self  : LSP_String;
+      Index : Positive) return Wide_Character is
+   begin
+      return Ada.Strings.Wide_Unbounded.Element
+        (Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Self), Index);
+   end Element;
+
+   -------------
+   -- Element --
+   -------------
+
+   function Element
+     (Self  : LSP_String_Vector'Class;
+      Index : Positive) return LSP_String is
+   begin
+      return Self.Data.Element (Index);
+   end Element;
 
    ---------------
    -- Ends_With --
@@ -651,6 +756,16 @@ package body LSP.Types is
       return To_Unbounded_Wide_String (UTF_16);
    end To_LSP_String;
 
+   -------------------
+   -- To_LSP_String --
+   -------------------
+
+   function To_LSP_String (Text : Wide_String) return LSP_String is
+   begin
+      return LSP_String
+        (Ada.Strings.Wide_Unbounded.To_Unbounded_Wide_String (Text));
+   end To_LSP_String;
+
    ---------------------
    -- To_UTF_8_String --
    ---------------------
@@ -704,6 +819,16 @@ package body LSP.Types is
       end loop;
       return Res;
    end To_UTF_8_Unbounded_String;
+
+   ------------------------------
+   -- To_Unbounded_Wide_String --
+   ------------------------------
+
+   function To_Unbounded_Wide_String (Value : LSP_String)
+     return Ada.Strings.Wide_Unbounded.Unbounded_Wide_String is
+   begin
+      return Ada.Strings.Wide_Unbounded.Unbounded_Wide_String (Value);
+   end To_Unbounded_Wide_String;
 
    -----------------------
    -- To_Virtual_String --
@@ -1033,8 +1158,8 @@ package body LSP.Types is
    begin
       JS.Start_Array;
 
-      for J in 1 .. V.Last_Index loop
-         JS.Write_String (V.Element (J));
+      for J in 1 .. V.Data.Last_Index loop
+         JS.Write_String (V.Data.Element (J));
       end loop;
 
       JS.End_Array;

@@ -17,7 +17,6 @@
 
 with Ada.Tags;  use Ada.Tags;
 with Ada.Tags.Generic_Dispatching_Constructor;
-with Ada.Strings.Wide_Unbounded;
 
 with Interfaces;
 
@@ -2869,7 +2868,7 @@ package body LSP.Messages is
          JS.Start_Object;
          for Cursor in V.changes.Iterate loop
             JS.Key
-              (Ada.Strings.Wide_Unbounded.Unbounded_Wide_String
+              (LSP.Types.To_Unbounded_Wide_String
                  (TextDocumentEdit_Maps.Key (Cursor)));
             JS.Start_Array;
             for Edit of V.changes (Cursor) loop
