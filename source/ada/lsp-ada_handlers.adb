@@ -3016,7 +3016,9 @@ package body LSP.Ada_Handlers is
         := Self.Get_Unique_Progress_Token ("indexing");
 
       procedure Emit_Progress_Begin;
-      procedure Emit_Progress_Report (Percent : Natural);
+      procedure Emit_Progress_Report
+        (Index : in out Natural;
+         Total : Natural);
       procedure Emit_Progress_End;
       --  Emit a message to inform that the indexing has begun / is in
       --  progress / has finished.
@@ -3049,13 +3051,30 @@ package body LSP.Ada_Handlers is
       -- Emit_Progress_Report --
       --------------------------
 
-      procedure Emit_Progress_Report (Percent : Natural) is
-         P : LSP.Messages.Progress_Params (LSP.Messages.Progress_Report);
+      Last_Percent : Natural := 0;
+
+      procedure Emit_Progress_Report
+        (Index : in out Natural;
+         Total : Natural)
+      is
+         Percent : constant Natural := ((Index + 1) * 100) / Total;
       begin
-         P.Report_Param.token := token;
-         P.Report_Param.value.percentage :=
-           (Is_Set => True, Value => LSP_Number (Percent));
-         Self.Server.On_Progress (P);
+         if Percent > Last_Percent then
+            --  If the value of the indexing increased by at least one
+            --  percent, emit one progress report.
+
+            declare
+               P : LSP.Messages.Progress_Params (LSP.Messages.Progress_Report);
+            begin
+               P.Report_Param.token := token;
+               P.Report_Param.value.percentage :=
+                 (Is_Set => True, Value => LSP_Number (Percent));
+               Self.Server.On_Progress (P);
+               Last_Percent := Percent;
+            end;
+         end if;
+
+         Index := Index + 1;
       end Emit_Progress_Report;
 
       -----------------------
@@ -3069,10 +3088,10 @@ package body LSP.Ada_Handlers is
          Self.Server.On_Progress (P);
       end Emit_Progress_End;
 
-      Index           : Natural := 1;
-      Total           : constant Natural := Self.Contexts.Total_Source_Files;
-      Last_Percent    : Natural := 0;
-      Current_Percent : Natural := 0;
+      Index : Natural := 1;
+      Total : constant Natural := Self.Contexts.Total_Source_Files +
+        Self.Project_Predefined_Sources.Length -
+        Natural (Self.Open_Documents.Length);
    begin
       --  Prevent work if the indexing has been explicitly disabled or
       --  if we have other messages to process.
@@ -3091,20 +3110,13 @@ package body LSP.Ada_Handlers is
                  (LSP.Types.To_LSP_String (File.Display_Full_Name));
             begin
                if not Self.Open_Documents.Contains (URI) then
-                  Current_Percent := (Index * 100) / Total;
-                  --  If the value of the indexing increased by at least one
-                  --  percent, emit one progress report.
-                  if Current_Percent > Last_Percent then
-                     Emit_Progress_Report (Current_Percent);
-                     Last_Percent := Current_Percent;
-                  end if;
+                  Emit_Progress_Report (Index, Total);
 
                   Context.Index_File (File);
-                  Index := Index + 1;
 
                   --  Check whether another request is pending. If so, pause
                   --  the indexing; it will be resumed later as part of
-                  --  After_Request. if Self.Server.Input_Queue_Length > 0 then
+                  --  After_Request.
                   if Self.Server.Has_Pending_Work then
                      Emit_Progress_End;
                      return;
@@ -3112,6 +3124,35 @@ package body LSP.Ada_Handlers is
                end if;
             end;
          end loop;
+      end loop;
+
+      for Context of Self.Contexts.Each_Context loop
+         for F in Self.Project_Predefined_Sources.Iterate loop
+            declare
+               File : constant GNATCOLL.VFS.Virtual_File :=
+                 LSP.Ada_File_Sets.File_Sets.Element (F);
+               URI  : constant LSP.Messages.DocumentUri := File_To_URI
+                 (LSP.Types.To_LSP_String (File.Display_Full_Name));
+            begin
+               if not Self.Open_Documents.Contains (URI) then
+                  Emit_Progress_Report (Index, Total);
+
+                  Context.Index_Runtime_File
+                    (Self.Project_Predefined_Sources,
+                     File);
+
+                  --  Check whether another request is pending. If so, pause
+                  --  the indexing; it will be resumed later as part of
+                  --  After_Request.
+                  if Self.Server.Has_Pending_Work then
+                     Emit_Progress_End;
+                     return;
+                  end if;
+               end if;
+            end;
+         end loop;
+
+         exit;  --  Index Run-Time files only in the first context.
       end loop;
 
       Emit_Progress_End;

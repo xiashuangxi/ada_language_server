@@ -15,6 +15,7 @@
 -- of the license.                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar;
 with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Text_IO;
@@ -28,7 +29,7 @@ with Spawn.Processes.Monitor_Loop;
 
 package body Tester.Tests is
 
-   Max_Wait : constant := 4_000;
+   Max_Wait : constant := 8.0;
    --  Max number of milliseconds to wait on a given snippet
 
    type Command_Kind is (Start, Stop, Send, Comment);
@@ -89,13 +90,16 @@ package body Tester.Tests is
      (Self    : in out Test'Class;
       Command : GNATCOLL.JSON.JSON_Value)
    is
+      use type Ada.Calendar.Time;
+
       Request : constant GNATCOLL.JSON.JSON_Value := Command.Get ("request");
       Wait    : constant GNATCOLL.JSON.JSON_Array := Command.Get ("wait").Get;
       Sort    : constant GNATCOLL.JSON.JSON_Value := Command.Get ("sortReply");
       Text    : constant Ada.Strings.Unbounded.Unbounded_String :=
         Request.Write;
 
-      Total_Milliseconds_Waited : Integer := 0;
+      Expire  : constant Ada.Calendar.Time :=
+        Ada.Calendar.Clock + Max_Wait * Wait_Factor;
       Timeout : constant := 100;
    begin
       Self.Waits := Wait;
@@ -106,8 +110,7 @@ package body Tester.Tests is
          Spawn.Processes.Monitor_Loop (Timeout => Timeout);
          exit when GNATCOLL.JSON.Length (Self.Waits) = 0;
 
-         Total_Milliseconds_Waited := Total_Milliseconds_Waited + Timeout;
-         if Total_Milliseconds_Waited > Max_Wait * Wait_Factor then
+         if Ada.Calendar.Clock > Expire then
             declare
                Text : Spawn.String_Vectors.UTF_8_String_Vector;
             begin

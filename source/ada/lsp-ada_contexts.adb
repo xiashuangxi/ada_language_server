@@ -531,6 +531,7 @@ package body LSP.Ada_Contexts is
          Unchecked_Free (All_Sources);
          Self.Source_Files.Clear;
          Self.Last_Indexed := GNATCOLL.VFS.No_File;
+         Self.Last_Runtime := GNATCOLL.VFS.No_File;
 
          for Index in 1 .. Free_Index - 1 loop
             Self.Source_Files.Include (All_Ada_Sources (Index));
@@ -732,6 +733,29 @@ package body LSP.Ada_Contexts is
          Self.Last_Indexed := File;
       end if;
    end Index_File;
+
+   ------------------------
+   -- Index_Runtime_File --
+   ------------------------
+
+   procedure Index_Runtime_File
+     (Self     : in out Context;
+      File_Set : in out LSP.Ada_File_Sets.Indexed_File_Set;
+      File     : GNATCOLL.VFS.Virtual_File)
+   is
+      Unit : constant Libadalang.Analysis.Analysis_Unit :=
+        Self.LAL_Context.Get_From_File
+          (File.Display_Full_Name, Charset => Self.Get_Charset);
+      Name : constant LSP.Types.LSP_String :=
+        LSP.Types.To_LSP_String (Unit.Get_Filename);
+   begin
+      if Self.Last_Runtime = GNATCOLL.VFS.No_File
+        or else Self.Last_Runtime < File
+      then
+         File_Set.Index_File (File_To_URI (Name), Unit);
+         Self.Last_Runtime := File;
+      end if;
+   end Index_Runtime_File;
 
    --------------------
    -- Index_Document --

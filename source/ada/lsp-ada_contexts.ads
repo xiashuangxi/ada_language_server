@@ -169,6 +169,13 @@ package LSP.Ada_Contexts is
    --  Index the given file. This translates to refreshing the Libadalang
    --  Analysis_Unit associated to it.
 
+   procedure Index_Runtime_File
+     (Self     : in out Context;
+      File_Set : in out LSP.Ada_File_Sets.Indexed_File_Set;
+      File     : GNATCOLL.VFS.Virtual_File);
+   --  Index the given file of the predefined runtime library. This translates
+   --  to refreshing the Libadalang Analysis_Unit associated to it.
+
    procedure Index_Document
      (Self : Context; Document : LSP.Ada_Documents.Document);
    --  Index/reindex the given document in this context
@@ -220,6 +227,8 @@ private
       --  Cache for the list of Ada source files in the loaded project tree.
       Last_Indexed   : GNATCOLL.VFS.Virtual_File;
       --  A file from Source_Files that was indexed in the last iteration
+      Last_Runtime   : GNATCOLL.VFS.Virtual_File;
+      --  A file from runtime library that was indexed in the last iteration
 
       PP_Options : Utils.Command_Lines.Command_Line
                     (Pp.Command_Lines.Descriptor'Access);
