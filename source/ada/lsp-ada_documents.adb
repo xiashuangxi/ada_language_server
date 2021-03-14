@@ -527,7 +527,7 @@ package body LSP.Ada_Documents is
                --  Replace the wrong location by the end of the buffer
                Element.span.last :=
                  (line      => Line_Number (Old_Lines.Length - 1),
-                  character => Iterator.UTF16_Offset);
+                  character => Iterator.First_UTF16_Offset);
                Edit.Replace_Element (Edit.Last, Element);
             end;
          end if;
